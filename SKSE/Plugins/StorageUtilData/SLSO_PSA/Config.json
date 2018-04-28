@@ -1,0 +1,14 @@
+{
+	"float" : 
+	{
+		"npcorgasmdrainchance" : 1,
+		"pcorgasmdrainchance" : 0
+	},
+	"int" : 
+	{
+		"hotkey_auto_drain" : 11,
+		"instantkill" : 0,
+		"soultrap" : 1,
+		"widget_border_color" : 13369395
+	}
+}
