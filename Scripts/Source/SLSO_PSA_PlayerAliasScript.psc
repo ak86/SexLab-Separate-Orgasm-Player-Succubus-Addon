@@ -39,9 +39,6 @@ function Maintenance()
 	if JsonUtil.GetErrors(File) != ""
 		Debug.Notification("SLSO_PSA Json has errors, mod wont work")
 	endif
-	self.RegisterForKey(JsonUtil.GetIntValue(File, "hotkey_auto_drain"))
-	self.RegisterForKey(JsonUtil.GetIntValue(File, "hotkey_manual_drain"))
-	
 endFunction
 
 function Clear()
@@ -54,6 +51,7 @@ function Clear()
 	drain_lock = false
 	drainmagnitude = 0
 	hotkey_auto_drain = false
+	UnregisterForAllKeys()
 endFunction
 
 function Drain(Actor akActor)
@@ -65,6 +63,62 @@ function Drain(Actor akActor)
 ;utility.wait(1)
 ;akActor.kill()
 endFunction
+
+;----------------------------------------------------------------------------
+;SexLab hooks
+;----------------------------------------------------------------------------
+
+Event OnSexLabStart(string EventName, string argString, Float argNum, form sender)
+	sslThreadController controller = SexLab.GetController(argString as int)
+
+	if controller.HasPlayer
+		self.RegisterForKey(JsonUtil.GetIntValue(File, "hotkey_auto_drain"))
+		self.RegisterForKey(JsonUtil.GetIntValue(File, "hotkey_manual_drain"))
+		DrainActors = new Actor[5]
+;		If hotkey_auto_drain == true
+;			Widget1.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
+;			Widget2.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
+;			Widget3.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
+;			Widget4.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
+;			Widget5.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
+;		Else
+;			Clear()
+;		EndIf
+	endif
+EndEvent
+
+Event OnSexLabEnd(string EventName, string argString, Float argNum, form sender)
+	sslThreadController controller = SexLab.GetController(argString as int)
+
+	if controller.HasPlayer
+		if hotkey_auto_drain == true
+			Float Damage = (Game.GetPlayer().GetActorValue("Health") + Game.GetPlayer().GetActorValue("Stamina") + Game.GetPlayer().GetActorValue("Magicka")) / 3 * drainmagnitude
+			if Damage < 0
+				Damage = 0
+			endif
+			Sexlab.Log("Player Succubus Addon Drain: " + Damage + " Health")
+			(self.GetOwningQuest() as SLSO_PSA_PSQ).AddEnergy(Damage)
+			
+			int i = 0
+			while i < DrainActors.Length
+				if DrainActors[i] != none && DrainActors[i] != Game.GetPlayer()
+					;(Game.GetFormFromFile(0xF5B58, "skyrim.esm") as Spell).cast( Game.GetPlayer(), DrainActors[i] )	; Drain life
+					if JsonUtil.GetIntValue(File, "Instantkill") == 1
+						DrainActors[i].Kill()
+					else
+						DrainActors[i].DamageActorValue("Health", Damage)
+					endif
+				endif
+				i += 1
+			endwhile
+		endif
+		Clear()
+	endif
+EndEvent
+
+;----------------------------------------------------------------------------
+;SexLab orgasm hooks
+;----------------------------------------------------------------------------
 
 Event Orgasm(string eventName, string argString, float argNum, form sender)
 	Actor[] actorList = SexLab.HookActors(argString)
@@ -122,58 +176,13 @@ Event OrgasmS(Form ActorRef, Int Thread)
 EndEvent
 
 ;----------------------------------------------------------------------------
-;SexLab hooks
+;hotkey
 ;----------------------------------------------------------------------------
-
-Event OnSexLabStart(string EventName, string argString, Float argNum, form sender)
-	sslThreadController controller = SexLab.GetController(argString as int)
-
-	if controller.HasPlayer
-		DrainActors = new Actor[5]
-		If hotkey_auto_drain == true
-			Widget1.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
-			Widget2.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
-			Widget3.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
-			Widget4.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
-			Widget5.BorderColor = JsonUtil.GetIntValue(File, "widget_Border_color") as int
-		Else
-			Clear()
-		EndIf
-	endif
-EndEvent
-
-Event OnSexLabEnd(string EventName, string argString, Float argNum, form sender)
-	sslThreadController controller = SexLab.GetController(argString as int)
-
-	if controller.HasPlayer
-		if hotkey_auto_drain == true
-			Float Damage = (Game.GetPlayer().GetActorValue("Health") + Game.GetPlayer().GetActorValue("Stamina") + Game.GetPlayer().GetActorValue("Magicka")) / 3 * drainmagnitude
-			if Damage < 0
-				Damage = 0
-			endif
-			(self.GetOwningQuest() as SLSO_PSA_PSQ).AddEnergy(Damage)
-			
-			int i = 0
-			while i < DrainActors.Length
-				if DrainActors[i] != none && DrainActors[i] != Game.GetPlayer()
-					;(Game.GetFormFromFile(0xF5B58, "skyrim.esm") as Spell).cast( Game.GetPlayer(), DrainActors[i] )	; Drain life
-					if JsonUtil.GetIntValue(File, "Instantkill") == 1
-						DrainActors[i].Kill()
-					else
-						DrainActors[i].DamageActorValue("Health", Damage)
-					endif
-				endif
-				i += 1
-			endwhile
-		endif
-		Clear()
-	endif
-EndEvent
-
 
 Event OnKeyDown(int keyCode)
 	If JsonUtil.GetIntValue(File, "hotkey_auto_drain") == keyCode
 		If hotkey_auto_drain == false && Game.GetPlayer().GetActorValue("Magicka") > 25
+			Debug.Notification("Draining partner(s)")
 			hotkey_auto_drain = true
 			Game.GetPlayer().DamageActorValue("Magicka", 25)
 			drain_lock = true
